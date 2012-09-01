@@ -1,0 +1,286 @@
+///Hey Chris, this is a game I've done in JS.  It's a battle game where you don't do anything :(  I could add user interaction with prompts but prompts suck... so, until I know how to make web apps/graphics for the user to interact with, I'm gonna leave it like this.
+//It's all based on chance and user/enemy stats.  You gain levels by killing your enemy and you gain/lose rating (like arena) depending on the outcome of the battle.  Depending on your weapon type you can either apply a bleed dot, detroy the enemy's armor or stun him.
+//You'll find that the code is a bit messy and sometimes redundant but w/e I've tried to make it as clean as possible, and sometimes writing it like this has been the only way to make it work.
+
+
+//This function creates the enemy.  It applies a name, initialHP, a level and it's rating (like arena).
+
+function Enemy(name, hp, armor, level, rating){
+         this.name = name;
+         this.hp = hp;
+         this.armor = armor;
+         //the hp value appears twice because one value is the current hp value and the other was the initial hp value.  This way I can print how much hp he has left and compare it to how much he had initially.
+         this.i_hp = hp;
+         this.level = level;
+         this.rating = rating;
+         this.hit_chance = 0.8;
+         this.agility = 10;
+         this.attack_pwr = 15;
+         //this dotremaining is just here so that the enemy doesn't start with any bleeds.
+         this.dotremaining = 0;
+         
+         //this function applies the dot to the enemy. I've made it general in case that I want to add any other type of dots in the future.
+         this.apply_dot = function(dotname, dotduration, dotdamage){
+           this.dotremaining = dotduration;
+           this.dotdamage = dotdamage;
+           this.dotname = dotname;
+           console.log(this.name + " has been inflicted with " + dotname);
+           
+         };
+         //this function checks if the dot is active and inflicts the damage.
+         this.dot = function() {
+             this.dotremaining--;
+             if (this.dotremaining >= 0){
+                this.hp -= this.dotdamage;
+                console.log( this.name + " suffers " + this.dotdamage +" damage from " + this.dotname  + ".  " + this.dotremaining + " hits remaining.  " + this.name + "  [ " + this.hp + "/" + this.i_hp + " ]");
+             }
+         };
+
+         //this function reduces the enemy armor permanently.  If the substraction will leave a positive value then the armor is reduced by the users level divided by 2, and if it'll leave a negative or zero value the armor is set to 0.   
+         this.reduce_armor = function() {
+            if (this.armor - (Math.floor(user.level / 2) + 1) > 0) {
+                this.armor -= (Math.floor(user.level / 2) + 1);
+                console.log(this.name + "'s armor has been reduced by" + (Math.floor(user.level / 2) + 1));
+            }
+            else {
+                this.armor = 0;
+                console.log(this.name + " has no more armor!");
+            }    
+         }; 
+         this.stunremaining = 0;
+
+         //this function is similar to the dot function and is used for the stun.  The max attacks the enemy can be stunned is 4.
+         this.stun = function() {
+            if (user.level / this.level > 3 ) {
+                this.stunremaining = 4;
+            }
+            else {
+                this.stunremaining = 4;
+                //Math.floor( user.level / this.level) + 1;
+            }
+            console.log(this.name + " has been stunned for " + this.stunremaining + " attacks!");
+         };
+    }
+
+
+//this function creates the user.  So far it only depends on the name and the weapon type.  In the future I may add a way to choose the stats.      
+
+function user(name, wpn_type){
+      this.name = name;
+      //initial level is 1 and xp starts from 0.
+      this.level = 1;
+      this.xp = 0;
+      //this calculates the xp needed for the next level.
+      this.xpforlevel = Math.floor( Math.pow(10 * this.level,1.6) );  
+      //initial rating is 1500
+      this.rating = 1500;
+      this.hit_chance = 0.8;
+      //attack power depends on level
+      this.attack_pwr = 15 + 3*(this.level - 1);
+      //agility so far is fixed, but I may change it so that it's variable.
+      this.agility = 10;
+      this.armor = 5;
+      this.i_hp = 100 + 10 * (this.level -1);
+      //same as with enemy, there's i_hp (initial hp) and hp (current hp).
+      this.hp = this.i_hp;
+      this.combo = 0;
+      strikes = 0;
+      this.wpn_type = wpn_type;
+      
+      //this function updates the user's stats.  I know they are duplicated but it's the only way i've found for them to update.  If not the attack power remained always at 15, no matter the user's level (for example).
+      this.levelup = function(){
+          //the experience needed to level up is subtracted so that you are left with your current exp.  For example I have 200 xp and need 300 for next level.  If I gain 200 xp I level up and I have 100xp left in the next level.
+          this.xp = this.xp - this.xpforlevel;
+          this.level++;
+          this.xpforlevel = Math.floor( Math.pow(10 * this.level,1.6) );
+          this.attack_pwr = 15 + 3*(this.level - 1);
+          this.i_hp = 100 + 10 * (this.level -1);
+          this.hp = this.i_hp;
+          
+          console.log( this.name + " has reached level " + this.level+"!");
+          console.log( this.name + " has gained 3 attack power and 10 health points.");
+          this.checkxp();
+          
+      };
+
+      //this function does a certain attack depending on the user's weapon type.
+      this.wpn_special = function() {
+            if (wpn_type === "sword") {
+                enemy.apply_dot("Bleed", 4, this.level);
+            }
+            else if (wpn_type === "axe") {
+                enemy.reduce_armor(this.level);
+            }
+            //this else is for maces.
+            else {
+                enemy.stun(this.level);
+            }
+      };
+
+      //this function changes the user's rating after a fight.  It depends on your rating, the enemy's rating and the result of the battle.
+      this.changerating = function(t2, result){
+          this.rating_diff = this.rating - t2;
+          this.rating_diff_f = Math.floor(Math.abs( (this.rating - t2)/15)); // rating_diff_f is the rating difference divided by 15.  It's the rating gain/loss that the user will have after the battle.
+          if (result === "win"){
+              i = 1; //i is 1 because the change will be positive.
+              change ="gained ";
+          }
+          else {
+              i = -1; //i is -1 because the change will be negative.
+              change="lost ";
+          }
+          if (this.rating_diff <= 0){      //if your rating is smaller than the enemy's rating.
+                  if (this.rating_diff_f + 25 >= 45) { // and the rating difference is more than 300 (remember its being divided by 15)
+                        this.rating += i * 45;      //then you gain 45 rating max.  So if my enemy has more than 300 rating than me i'll gain max 45 rating if i win.
+                        console.log( "You've " + change +"45 rating.  Your rating is " + this.rating);
+                  }
+                  else {
+                      this.rating +=  i * (this.rating_diff_f + 25); //if the rating difference is less than 300 
+                      console.log( "You've " +change + (25 + this.rating_diff_f) + " rating.  Your rating is " + this.rating);  //then the rating change is the difference /15 + 25.         
+                  }             
+              }
+            else {          //if your rating is greater than your enemy's
+                  if (25 - this.rating_diff_f <= 5){// and the rating difference is greater than 300
+                      this.rating += i * 5;
+                      console.log( "You've " + change +"5 rating.  Your rating is " + this.rating); // the max rating change you can gain is 5.  If I defeat someone who has 300 rating less than me then i'll just gain 5 rating.
+                  }
+                  else {
+                      this.rating += i* (25 - this.rating_diff_f);
+                      console.log( "You've " + change + (25 - this.rating_diff_f) + " rating.  Your rating is " + this.rating);   //if the rating difference is less than 300 then the rating change will be 25 - rating diff/15.
+              }          
+          }
+      };
+
+      //this function gives you xp gain after you kill an enemy.
+      this.gainxp = function(n){
+           this.xp += n;
+           console.log( this.name + " has gained " + n +" experience.");
+           this.checkxp = function(){   // This checks if your xp is greater than what you need.  If it is you'll level up.
+                 if(this.xp >= this.xpforlevel) {
+                       this.levelup();
+                       }
+                  else {
+                        this.xpforlevel = Math.floor( Math.pow(10 * this.level,1.6) );      
+                        console.log("[" + this.name + " has " + this.xp + "/" + this.xpforlevel + " experience].");                        
+                  }
+                };
+            this.checkxp(); // this is recursive in case that you gain more xp than what you need for 1 level up.  (you can level up many levels simultaneously).
+            };
+
+      // this is the main function.
+      this.battle = function(enemy){
+          if (strikes === 0 ){ //this is just so that the battle announcement does not appear in every attack.
+            this.hp = this.i_hp; //the users health is refilled to the max level.
+            this.combo = 0; //the combo counter is reset.
+            console.log(">>>> " + this.name + " is battling " + enemy.name + "!");
+            console.log(">>>> [" + enemy.name + "'s stats: " + enemy.i_hp + " health, " + enemy.armor + " armor, " + "level " + enemy.level +"].");
+            strikes++;
+          }
+          if(enemy.hp > 0 && this.hp > 0){ // if both players are alive.
+                if( Math.random() >= (this.agility / (enemy.agility + this.agility))){  //the chance to attack depends on the users agility in comparison to the enemy's agility.  The higher your agility the more attacks you'll make.
+                    if (Math.random() <= this.hit_chance) { //checks if you'll land the hit.
+                        console.log(this.name + " lands a hit!");
+                        this.combo++; //if you land 5 consecutive blows you'll do a combo strike.
+                        attack_dmg = Math.floor((Math.random() * this.attack_pwr + 1));  //your attack damage depends on your attack power.
+                            if (this.combo > 5){
+                                console.log(this.name + " does a Combo Strike!");
+                                enemy.hp -= (this.attack_pwr * 2); //a combo strike deals twice your attack power and ignores armor.
+                                console.log(this.name + " hits " + enemy.name + " for " + (this.attack_pwr * 2) + ".                              " + enemy.name + " [ " + enemy.hp + "/" + enemy.i_hp + " ]"); 
+                            }
+                            else { //a normal strike
+                                if  (attack_dmg - enemy.armor > 0){ // if your damage - the enemy's armor results in a positive value then you'll deal that value
+                                enemy.hp -= attack_dmg - enemy.armor;
+                                console.log(this.name + " hits " + enemy.name + " for " + (attack_dmg - enemy.armor) + ".                              " + enemy.name + " [ " + enemy.hp + "/" + enemy.i_hp + " ]");                     
+                                    if (Math.random() <= 0.1){ // you have a 30% chance of doing a special attack.
+                                        //this.wpn_special();
+                                        if (this.wpn_type === "sword") {
+                                            enemy.apply_dot("Bleed", 4, this.level);
+                                        }
+                                        else if (this.wpn_type === "axe") {
+                                            enemy.reduce_armor(this.level);
+                                        }
+                                         //this else is for maces.
+                                        else {
+                                            enemy.stun(this.level);
+                                        }
+                                    }
+                             
+                                }
+                                else { // if the enemy has more armor than your damage then he'll take no damage
+                                    console.log(enemy.name + " takes no damage!");
+                                }
+                            
+                                    
+                            }
+                    }        
+                    else { //if the random number is bigger than your hit chance then you'll miss.
+                        console.log( this.name + " misses!");
+                        this.combo = 0; // the combo value resets to 0.
+                    }    
+                console.log("----");
+                this.battle(enemy);  //the battle keeps going.
+                }
+
+                else {// if its the enemy's turn to attack
+                    if(enemy.stunremaining > 0) { // checks if the user is stunned.
+                        console.log(enemy.name + " is stunned for " + enemy.stunremaining + " more attacks.");
+                        enemy.stunremaining--;
+                    }
+                    else {//if he's not stunned he procedes to attack.  This is very much like the user's part.
+                        if (Math.random() <= enemy.hit_chance) {
+                            console.log(enemy.name + " lands a hit!");
+                            attack_dmg = Math.floor((Math.random() * enemy.attack_pwr + 1));
+                                if (attack_dmg - this.armor > 0){
+                                    this.hp -= attack_dmg - this.armor;
+                                    console.log(enemy.name + " hits " + this.name + " for " + (attack_dmg - this.armor) + ".                              " + this.name + " [ " + this.hp + "/" + this.i_hp + " ]");                     
+                                }
+                           
+                                else {
+                                    console.log(this.name + " takes no damage!");
+                                }        
+                        }
+                        else {
+                            console.log( enemy.name + " misses!");
+                        }    
+                    enemy.dot();
+                    console.log("----");
+                    }
+                    this.battle(enemy);  
+                 }
+                
+            }
+          else {
+              if (this.hp > 0) { //if one is dead and the user is alive then the user has won.
+                    console.log(enemy.name + " is dead!");
+                    console.log(">>");
+                    n = enemy.level * 3; // you gain 3 times the enemy's level as experience.
+                    this.gainxp(n);
+                    t2 = enemy.rating;
+                    this.changerating(t2,"win"); //you gain rating depending on the enemy's rating.
+              }
+              else {
+                    console.log(this.name + " is dead!");
+                    console.log(">>");
+                    t2 = enemy.rating;
+                    this.changerating(t2,"lose");
+              }
+              console.log("*");
+              strikes = 0; //resets the strike counter so that the next battle is announced.
+          }
+      };
+          
+      }
+
+      
+
+var user1 = new user("Chris", "mace");  //here I define the new user.  Feel free to change and try the other weapons: axe or mace.
+
+var enemy1 = new Enemy("Tom", 40, 4, 20, 1250); //define the enemies (name, hp, armor, level, rating)
+var enemy2 = new Enemy("Joaquin", 100, 4, 20, 1600);
+var enemy3 = new Enemy("Mike", 50, 4, 20, 1580);
+var enemy4 = new Enemy("Rudy", 48, 4, 12, 1500);
+user1.battle(enemy2); //battle functions. You can add more if you want to fight more enemies.
+
+
+
+//Give me your opinions and if you find any errors or ways to write stuff in a more efficient way tell me so that I can learn a bit more.
